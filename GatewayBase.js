@@ -34,7 +34,9 @@ class GatewayBase {
             if (error) {
                 const content = `SQL 에러가 발생했습니다.\n${error.sqlMessage}\n\n쿼리: ${query}`;
                 modules.log.sqlError(LOG_SUBJECT, content);
-                connection.internalError();
+                if (connection) {
+                    connection.internalError();
+                }
                 return;
             }
 

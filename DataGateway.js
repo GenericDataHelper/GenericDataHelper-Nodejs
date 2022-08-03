@@ -1,10 +1,80 @@
 const LOG_SUBJECT = require('path').basename(__filename);
+const log = require("./Logger").instance();
 const Gateway = require("./GatewayBase");
 class DataGateway extends Gateway {
     tableName;  // 클래스에서 사용할 테이블 이름입니다.
     constructor(tableName) { 
         super();
         this.tableName = tableName;
+    }
+
+    list(conn, param, callback) {
+        let orderQueryStr = this.#makeOrderbyParam(param.orderby);
+        const query = `SELECT * FROM ${this.tableName} ${orderQueryStr} LIMIT ${param.limit} OFFSET ${param.offset}`;
+        Gateway.query(query, conn, (result) => {
+            callback(result);
+        });
+    }
+
+    random(conn, param, callback) {
+        let query = `SELECT * FROM ${this.tableName} ORDER BY RAND() LIMIT ${param.pickCount}`;
+        Gateway.query(query, conn, (result) => {
+            callback(result);
+        });
+    }
+
+    add(conn, param, callback) {
+        let isnertParam = this.#makeInsertParam(param);
+    
+        if (!isnertParam) {
+            log.error(LOG_SUBJECT, `ADD Parameter format error ${this.tableName}`, conn.ip);
+            if (conn)
+                conn.internalError();
+            return;
+        }
+        
+        let query = `INSERT INTO ${this.tableName} (${isnertParam.columns}) VALUES (${isnertParam.values})`;
+        log.verbose(LOG_SUBJECT, `ADD into ${this.tableName}\n${query}`, conn.ip);
+
+        Gateway.query(query, conn, (result) => {
+            callback(result);
+        });
+    }
+
+    update(conn, param, callback) {
+        let updateParam = this.#makeUpdateParam(param);
+
+        if (!updateParam) {
+            log.error(LOG_SUBJECT, `UPDATE Parameter format error ${this.tableName}`, conn.ip);
+            if (conn)
+                conn.internalError();
+            return;
+        }
+        
+        let query = `UPDATE ${this.tableName} SET ${updateParam.set} WHERE ${updateParam.where}`;
+        log.verbose(LOG_SUBJECT, `UPDATE from ${this.tableName}\n${query}`, conn.ip);
+
+        Gateway.query(query, conn, (result) => {
+            callback(result);
+        })
+    }
+
+    delete(conn, param, callback) {
+        let deleteParam = this.#makeDeleteParam(param);
+
+        if (!deleteParam) {
+            log.error(LOG_SUBJECT, `DELETE Parameter format error ${this.tableName}`, conn.ip);
+            if (conn)
+                conn.internalError();
+            return;
+        }
+        
+        let query = `DELETE FROM ${this.tableName} WHERE ${deleteParam}`;
+        log.verbose(LOG_SUBJECT, `DELETE from ${this.tableName}\n${query}`, conn.ip);
+        
+        Gateway.query(query, conn, (result) => {
+            callback(result);
+        })
     }
     
     /**
@@ -15,16 +85,19 @@ class DataGateway extends Gateway {
      * @param {string} headers.order_by (optional) 정렬 기준이 되는 컬럼을 설정합니다. 지정하지 않으면 정렬하지 않습니다.
      *                                               문자열의 작성은 #makeOrderQueryString을 참고합니다.
      */
-    list(conn) {
+    listWithConnection(conn) {
         let limit = conn.headers.page_size ? conn.headers.page_size : 20;
         let offset = conn.headers.page ? conn.headers.page * limit : 0;
-        let orderQueryStr = this.#makeOrderbyQuery(conn.headers.order_by);
+        let orderby = conn.headers.order_by;
 
         Gateway.authentication(conn, () => {
-            const query = `SELECT * FROM ${this.tableName} ${orderQueryStr} LIMIT ${limit} OFFSET ${offset}`;
-            Gateway.query(query, conn, (result) => {
+            this.list(conn, {
+                orderby : orderby, 
+                limit : limit, 
+                offset : offset
+            }, (result) => {
                 conn.send(result);
-            })
+            });
         });
     }
     
@@ -34,12 +107,11 @@ class DataGateway extends Gateway {
      * 
      * @param {int} headers.pick_count (optional) 반환할 row의 갯수입니다. 지정하지 않으면 1로 설정됩니다.
      */
-    random(conn) {
+    randomWithConnection(conn) {
         let pickCount = conn.headers.pick_count ? conn.headers.pick_count : 1;
 
         Gateway.authentication(conn, () => {
-            let query = `SELECT * FROM ${this.tableName} ORDER BY RAND() LIMIT ${pickCount}`;
-            Gateway.query(query, conn, (result) => {
+            this.random(conn, {pickCount: pickCount}, (result) => {
                 conn.send(result);
             });
         });
@@ -51,22 +123,11 @@ class DataGateway extends Gateway {
      * 
      * @param {JsonObject} body 이 json 오브젝트의 key와 value를 각각 column과 value로 새로운 행을 삽입합니다.
      */
-    add(conn) {
+    addWithConnection(conn) {
         Gateway.authentication(conn, () => {
-            let insertQuery = this.#makeInsertQuery(conn.body);
-        
-            if (!insertQuery) {
-                // TODO: 로그
-                conn.internalError();
-                return;
-            }
-
-            // TODO: 로그
-
-            const query = `INSERT INTO ${this.tableName} (${insertQuery.columns}) VALUES (${insertQuery.values})`;
-            Gateway.query(query, conn, (result) => {
+            this.add(conn, conn.body, (result) => {
                 conn.send({insertId: result.insertId});
-            })
+            });
         });
     }
 
@@ -77,22 +138,11 @@ class DataGateway extends Gateway {
      * @param {JsonObject} body.set 이 json 오브젝트의 key와 value를 각각 column과 value로 업데이트합니다.
      * @param {JsonObject} body.where 이 json 오브젝트의 key와 value를 각각 column과 value로 where절에 사용합니다.
      */
-    update(conn) {
+    updateWithConnection(conn) {
         Gateway.authentication(conn, () => {
-            let updateQuery = this.#makeUpdateQuery(conn.body);
-
-            if (!updateQuery) {
-                // TODO: 로그
-                conn.internalError();
-                return;
-            }
-            
-            // TODO: 로그
-
-            let query = `UPDATE ${this.tableName} SET ${updateQuery.set} WHERE ${updateQuery.where}`;
-            Gateway.query(query, conn, (result) => {
+            this.update(conn, conn.body, (result) => {
                 conn.send(result);
-            })
+            });
         });
     }
 
@@ -101,25 +151,13 @@ class DataGateway extends Gateway {
      * 
      * @param {JsonObject} body 이 json 오브젝트의 key와 value를 각각 column과 value로 where절에 사용합니다.
      */
-    delete(conn) {
+    deleteWithConnection(conn) {
         Gateway.authentication(conn, () => {
-            let deleteQuery = this.#makeDeleteQuery(conn.body);
-
-            if (!deleteQuery) {
-                // TODO: 로그
-                conn.internalError();
-                return;
-            }
-            
-            // TODO: 로그
-
-            let query = `DELETE FROM ${this.tableName} WHERE ${deleteQuery}`;
-            Gateway.query(query, conn, (result) => {
+            this.delete(conn, conn.body, (result) => {
                 conn.send(result);
-            })
+            });
         });
     }
-
 
     
     /**
@@ -131,7 +169,7 @@ class DataGateway extends Gateway {
      * 
      * 파라미터의 예시: "date/null, date/asc, time/null, time/asc, idx/desc"
      */
-    #makeOrderbyQuery(orderByParameter) {
+    #makeOrderbyParam(orderByParameter) {
         if (!orderByParameter)
             return "";
 
@@ -177,7 +215,7 @@ class DataGateway extends Gateway {
      * @param {JsonObject} insertParameter 데이터 json 오브젝트
      * @returns 컬럼과 값 정보 배열을 각각 .column과 .values라는 이름으로 가진 오브젝트를 반환합니다. 오류가 발생하면 null을 반환합니다.
      */
-    #makeInsertQuery(insertParameter) {
+    #makeInsertParam(insertParameter) {
         if (!insertParameter)
             return null;
             
@@ -207,7 +245,7 @@ class DataGateway extends Gateway {
      * @returns SET 쿼리와 WHERE 쿼리를 각각 .set와 .where라는 이름으로 가진 오브젝트를 반환합니다.
      *          오류가 발생하면 null을 반환합니다.
      */
-    #makeUpdateQuery(updateParameter) {
+    #makeUpdateParam(updateParameter) {
         if (!updateParameter)
             return null;
 
@@ -267,7 +305,7 @@ class DataGateway extends Gateway {
      * @returns DELETE문의 WHERE 절에 사용할 쿼리 문자열을 반환합니다.
      *          오류가 발생하면 null을 반환합니다.
      */
-    #makeDeleteQuery(deleteParameter){
+    #makeDeleteParam(deleteParameter){
         if (!deleteParameter)
             return null;
 
