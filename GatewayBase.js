@@ -3,7 +3,10 @@ const blacklist = require('./AutoBlock');
 
 class GatewayBase {
     static #sql = require('./Sql.js').instance();
+    static #log = require('./Logger').instance();
     static #authFunction = null;
+
+    time = require('./Time');
 
     constructor() { }
 
@@ -33,7 +36,7 @@ class GatewayBase {
         this.#sql.query(safeQuery, (error, result, fields) => {
             if (error) {
                 const content = `SQL 에러가 발생했습니다.\n${error.sqlMessage}\n\n쿼리: ${query}`;
-                modules.log.sqlError(LOG_SUBJECT, content);
+                this.#log.sqlError(LOG_SUBJECT, content);
                 if (connection) {
                     connection.internalError();
                 }

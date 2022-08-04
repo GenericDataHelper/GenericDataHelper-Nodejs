@@ -8,72 +8,79 @@ class DataGateway extends Gateway {
         this.tableName = tableName;
     }
 
+    list(param, callback) { this.list(null, param, callback); }
     list(conn, param, callback) {
+        let ip = conn ? conn.ip : null;
         let orderQueryStr = this.#makeOrderbyParam(param.orderby);
         const query = `SELECT * FROM ${this.tableName} ${orderQueryStr} LIMIT ${param.limit} OFFSET ${param.offset}`;
         Gateway.query(query, conn, (result) => {
-            callback(result);
+            if (callback) callback(result);
         });
     }
 
+    random(param, callback) { this.random(null, param, callback) }
     random(conn, param, callback) {
+        let ip = conn ? conn.ip : null;
         let query = `SELECT * FROM ${this.tableName} ORDER BY RAND() LIMIT ${param.pickCount}`;
         Gateway.query(query, conn, (result) => {
-            callback(result);
+            if (callback) callback(result);
         });
     }
-
+    
+    add(param, callback) { this.add(null, param, callback) }
     add(conn, param, callback) {
+        let ip = conn ? conn.ip : null;
         let isnertParam = this.#makeInsertParam(param);
     
         if (!isnertParam) {
-            log.error(LOG_SUBJECT, `ADD Parameter format error ${this.tableName}`, conn.ip);
-            if (conn)
-                conn.internalError();
+            log.error(LOG_SUBJECT, `ADD Parameter format error ${this.tableName}`, ip);
+            if (conn) conn.internalError();
             return;
         }
         
         let query = `INSERT INTO ${this.tableName} (${isnertParam.columns}) VALUES (${isnertParam.values})`;
-        log.verbose(LOG_SUBJECT, `ADD into ${this.tableName}\n${query}`, conn.ip);
+        log.verbose(LOG_SUBJECT, `ADD into ${this.tableName}\n${query}`, ip);
 
         Gateway.query(query, conn, (result) => {
-            callback(result);
+            if (callback) callback(result);
         });
     }
 
+    update(param, callback) { this.update(null, param, callback) }
     update(conn, param, callback) {
+        let ip = conn ? conn.ip : null;
         let updateParam = this.#makeUpdateParam(param);
 
         if (!updateParam) {
-            log.error(LOG_SUBJECT, `UPDATE Parameter format error ${this.tableName}`, conn.ip);
-            if (conn)
-                conn.internalError();
+            log.error(LOG_SUBJECT, `UPDATE Parameter format error ${this.tableName}`, ip);
+            if (conn) conn.internalError();
             return;
         }
         
         let query = `UPDATE ${this.tableName} SET ${updateParam.set} WHERE ${updateParam.where}`;
-        log.verbose(LOG_SUBJECT, `UPDATE from ${this.tableName}\n${query}`, conn.ip);
+        log.verbose(LOG_SUBJECT, `UPDATE from ${this.tableName}\n${query}`, ip);
 
         Gateway.query(query, conn, (result) => {
-            callback(result);
+            if (callback) callback(result);
         })
     }
 
+    delete(param, callback) { this.delete(conn, param, callback) }
     delete(conn, param, callback) {
+        let ip = conn ? conn.ip : null;
         let deleteParam = this.#makeDeleteParam(param);
 
         if (!deleteParam) {
-            log.error(LOG_SUBJECT, `DELETE Parameter format error ${this.tableName}`, conn.ip);
-            if (conn)
-                conn.internalError();
+            log.error(LOG_SUBJECT, `DELETE Parameter format error ${this.tableName}`, ip);
+            if (conn) conn.internalError();
             return;
         }
         
         let query = `DELETE FROM ${this.tableName} WHERE ${deleteParam}`;
-        log.verbose(LOG_SUBJECT, `DELETE from ${this.tableName}\n${query}`, conn.ip);
+        log.verbose(LOG_SUBJECT, `DELETE from ${this.tableName}\n${query}`, ip);
         
         Gateway.query(query, conn, (result) => {
-            callback(result);
+            if (callback) callback(result);
         })
     }
     
