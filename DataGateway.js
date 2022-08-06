@@ -8,8 +8,7 @@ class DataGateway extends Gateway {
         this.tableName = tableName;
     }
 
-    list(param, callback) { this.list(null, param, callback); }
-    list(conn, param, callback) {
+    list(param, conn, callback) {
         let ip = conn ? conn.ip : null;
         let orderQueryStr = this.#makeOrderbyParam(param.orderby);
         const query = `SELECT * FROM ${this.tableName} ${orderQueryStr} LIMIT ${param.limit} OFFSET ${param.offset}`;
@@ -18,8 +17,7 @@ class DataGateway extends Gateway {
         });
     }
 
-    random(param, callback) { this.random(null, param, callback) }
-    random(conn, param, callback) {
+    random(param, conn, callback) {
         let ip = conn ? conn.ip : null;
         let query = `SELECT * FROM ${this.tableName} ORDER BY RAND() LIMIT ${param.pickCount}`;
         Gateway.query(query, conn, (result) => {
@@ -27,8 +25,7 @@ class DataGateway extends Gateway {
         });
     }
     
-    add(param, callback) { this.add(null, param, callback) }
-    add(conn, param, callback) {
+    add(param, conn, callback) {
         let ip = conn ? conn.ip : null;
         let isnertParam = this.#makeInsertParam(param);
     
@@ -46,8 +43,7 @@ class DataGateway extends Gateway {
         });
     }
 
-    update(param, callback) { this.update(null, param, callback) }
-    update(conn, param, callback) {
+    update(param, conn, callback) {
         let ip = conn ? conn.ip : null;
         let updateParam = this.#makeUpdateParam(param);
 
@@ -65,8 +61,7 @@ class DataGateway extends Gateway {
         })
     }
 
-    delete(param, callback) { this.delete(conn, param, callback) }
-    delete(conn, param, callback) {
+    delete(param, conn, callback) {
         let ip = conn ? conn.ip : null;
         let deleteParam = this.#makeDeleteParam(param);
 
@@ -98,11 +93,11 @@ class DataGateway extends Gateway {
         let orderby = conn.headers.order_by;
 
         Gateway.authentication(conn, () => {
-            this.list(conn, {
+            this.list({
                 orderby : orderby, 
                 limit : limit, 
                 offset : offset
-            }, (result) => {
+            }, conn, (result) => {
                 conn.send(result);
             });
         });
@@ -118,7 +113,7 @@ class DataGateway extends Gateway {
         let pickCount = conn.headers.pick_count ? conn.headers.pick_count : 1;
 
         Gateway.authentication(conn, () => {
-            this.random(conn, {pickCount: pickCount}, (result) => {
+            this.random({pickCount: pickCount}, conn, (result) => {
                 conn.send(result);
             });
         });
@@ -132,7 +127,7 @@ class DataGateway extends Gateway {
      */
     addWithConnection(conn) {
         Gateway.authentication(conn, () => {
-            this.add(conn, conn.body, (result) => {
+            this.add(conn.body, conn, (result) => {
                 conn.send({insertId: result.insertId});
             });
         });
@@ -147,7 +142,7 @@ class DataGateway extends Gateway {
      */
     updateWithConnection(conn) {
         Gateway.authentication(conn, () => {
-            this.update(conn, conn.body, (result) => {
+            this.update(conn.body, conn, (result) => {
                 conn.send(result);
             });
         });
@@ -160,7 +155,7 @@ class DataGateway extends Gateway {
      */
     deleteWithConnection(conn) {
         Gateway.authentication(conn, () => {
-            this.delete(conn, conn.body, (result) => {
+            this.delete(conn.body, conn, (result) => {
                 conn.send(result);
             });
         });
@@ -308,6 +303,9 @@ class DataGateway extends Gateway {
      * 파라미터 오브젝트는 아래와 같이 구성되어야합니다:
      *  { column1:value1, column2:value2 ... }
      * 
+     * 이 때 value의 값 앞에 '<value' 또는 '>=value'처럼 관계 연산자를 함께 보낼 수 있습니다.
+     * 
+     * 
      * @param {JsonObject} deleteParameter
      * @returns DELETE문의 WHERE 절에 사용할 쿼리 문자열을 반환합니다.
      *          오류가 발생하면 null을 반환합니다.
@@ -324,13 +322,38 @@ class DataGateway extends Gateway {
 
         let wheres = [];
         for (var i= 0; i< keys.length; i++) {
-            wheres.push(`\`${keys[i]}\`='${values[i]}'`);
+            let value = this.#parseOperator(values[i]);
+            wheres.push(`\`${keys[i]}\`${value.operator}'${value.value}'`);
         }
 
         if (wheres.length == 0)
             return null;
 
         return wheres.join(" AND ");
+    }
+
+    #parseOperator(value) {
+        if (!value) {
+            return null;
+        }
+        
+        if (value.startsWith("<")) {
+            return {operator : '<', value : value.slice(1)};
+        }
+        if (value.startsWith("<=")) {
+            return {operator : '<=', value : value.slice(2)};
+        }
+        if (value.startsWith(">")) {
+            return {operator : '>', value : value.slice(1)};
+        }
+        if (value.startsWith(">=")) {
+            return {operator : '>=', value : value.slice(2)};
+        }
+        if (value.startsWith("=")) {
+            return {operator : '=', value : value.slice(1)};
+        }
+
+        return {operator : '=', value : value};
     }
 }
 
