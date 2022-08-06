@@ -37,7 +37,7 @@ class Connection {
     }
 
     addIntoBlacklist() {
-        blacklist.addIntoBlacklist(conn.ip);
+        blacklist.addIntoBlacklist(this.ip);
     }
 }
 

@@ -39,7 +39,7 @@ class Logger {
 
         var title = `서버에 문제가 발생했습니다.`;
         var content = `위치: ${subject}\n발생 날짜: ${this.#time().format("YYYY-MM-DD HH:mm:ss")}\n\n${text}\n\n기록된 아이피: ${ip}`;
-        this.#notifier(content);
+        this.#notifier(title, content);
     }
 
     log             (level, subject, content, ip) { this.#general_logging(level, subject, content, ip); }
@@ -62,7 +62,7 @@ module.exports = class Singleton {
 
     /**
      * notifier를 등록하면 warning 이상의 log가 발생할 때 해당 메서드를 호출합니다.
-     * @param {function(string)} notifier 로그로 남길 텍스트를 인자로 해서 호출하는 callback입니다..
+     * @param {function(string title, string content)} notifier title과 content에 해당하는 string을 인자로 호출합니다
      */
     static setNotifier(notifier) {
         Singleton.instance().setNotifier(notifier);
