@@ -11,7 +11,10 @@ class DataGateway extends Gateway {
     list(param, conn, callback) {
         let ip = conn ? conn.ip : null;
         let orderQueryStr = this.#makeOrderbyParam(param.orderby);
-        const query = `SELECT * FROM ${this.tableName} ${orderQueryStr} LIMIT ${param.limit} OFFSET ${param.offset}`;
+        let whereParam = this.#makeWhereParam(param.where);
+        let limitParam = param.limit ? `LIMIT ${param.limit}` : "";
+        let offsetParam = param.offset ? `OFFSET ${param.offset}` : "";
+        const query = `SELECT * FROM ${this.tableName} ${whereParam ? whereParam : ""} ${orderQueryStr} ${limitParam} ${offsetParam}`;
         Gateway.query(query, conn, (result) => {
             if (callback) callback(result);
         });
@@ -63,15 +66,15 @@ class DataGateway extends Gateway {
 
     delete(param, conn, callback) {
         let ip = conn ? conn.ip : null;
-        let deleteParam = this.#makeDeleteParam(param);
+        let whereParam = this.#makeWhereParam(param);
 
-        if (!deleteParam) {
+        if (!whereParam) {
             log.error(LOG_SUBJECT, `DELETE Parameter format error ${this.tableName}`, ip);
             if (conn) conn.internalError();
             return;
         }
         
-        let query = `DELETE FROM ${this.tableName} WHERE ${deleteParam}`;
+        let query = `DELETE FROM ${this.tableName} ${whereParam}`;
         log.verbose(LOG_SUBJECT, `DELETE from ${this.tableName}\n${query}`, ip);
         
         Gateway.query(query, conn, (result) => {
@@ -310,7 +313,7 @@ class DataGateway extends Gateway {
      * @returns DELETE문의 WHERE 절에 사용할 쿼리 문자열을 반환합니다.
      *          오류가 발생하면 null을 반환합니다.
      */
-    #makeDeleteParam(deleteParameter){
+    #makeWhereParam(deleteParameter){
         if (!deleteParameter)
             return null;
 
@@ -329,7 +332,7 @@ class DataGateway extends Gateway {
         if (wheres.length == 0)
             return null;
 
-        return wheres.join(" AND ");
+        return `WHERE ${wheres.join(" AND ")}`;
     }
 
     #parseOperator(value) {
