@@ -1,7 +1,7 @@
 const blacklist = require('./AutoBlock');
 
 class Connection {
-    request; resposne; ip; token;
+    request; response; ip; token;
     headers; body;
 
     constructor(request, response) {
@@ -22,6 +22,10 @@ class Connection {
 
     send(object) {
         this.response.json(object);
+    }
+
+    render(file, param) {
+        this.response.render(file, param);
     }
 
     internalError() {
