@@ -339,6 +339,8 @@ class DataGateway extends Gateway {
         if (!value) {
             return null;
         }
+
+        value = value + "";
         
         if (value.startsWith("<")) {
             return {operator : '<', value : value.slice(1)};
