@@ -20,6 +20,9 @@ class Logger {
      * @param {string} ip (Optional) 기록 아이피
      */
     #general_logging(level, subject, content, ip) {
+        if (content instanceof String == false)
+            content = JSON.stringify(content);
+            
         if (level >= 3) console.log(`[${subject}] ${content}`);
         if (!ip) ip = 'null'; else ip = `'${ip}'`;
         
