@@ -15,6 +15,7 @@ class Connection {
 
     #getIpAddress() {
         var ip = this.request.connection.remoteAddress;
+        if (!ip) return null;
         ip.replace("::ffff:192.168.0.", "localhost ");
         if (ip.startsWith("::ffff:")) ip = ip.slice(7);
         return ip;
