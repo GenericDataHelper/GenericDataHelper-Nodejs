@@ -24,6 +24,9 @@ class AutoBlock {
     }
 
     addIntoBlacklist(ip) {
+        if (ip.startsWith("192.168.0."))
+            return;
+
         const addr = ip.replace('\'', '\\\'');
         const date = time().format("YYYY-MM-DD HH:mm:ss");
         var query = `INSERT INTO \`blacklist\` (last_connected, \`address\`) \
